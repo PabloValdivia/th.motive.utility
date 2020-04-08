@@ -14,6 +14,7 @@ Export-Package: th.motive.utility,
  th.motive.utility.io,
  th.motive.utility.jasperreport,
  th.motive.utility.model,
+ th.motive.utility.ui,
  th.motive.utility.ws
 Import-Package: javax.xml.bind;version="2.3.2",
  org.adempiere.base,
@@ -30,3 +31,4 @@ Import-Package: javax.xml.bind;version="2.3.2",
  org.compiere.util,
  org.osgi.service.event;version="1.4.0"
 Bundle-ClassPath: .
+Require-Bundle: zk;bundle-version="8.6.0"

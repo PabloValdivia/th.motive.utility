@@ -24,6 +24,7 @@ public final class CommonUtil {
 	public static final String MSG_PROCESS_NOT_SUPPORT_ON_THE_TAB = "PROCESS_NOT_SUPPORT_ON_THE_TAB";
 	public static final String MSG_NOT_SUPPORT_TAX_TYPE = "NOT_SUPPORT_TAX_TYPE {0}";
 	
+	public static final String END_LINE = "\n";
 	/**
 	 * supported script engine on idempiere
 	 * @author hieplq
