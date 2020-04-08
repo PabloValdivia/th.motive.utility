@@ -39,7 +39,8 @@ public final class DBExtend {
     		while (rs.next()) {
     			Map<String, Object> record = new HashMap<>();
     			for (int columnIndex = 1; columnIndex <= rs.getMetaData().getColumnCount(); columnIndex++) {
-    				record.put(rs.getMetaData().getColumnLabel(columnIndex), rs.getObject(columnIndex));
+    				// posgresql always return lower but oracle always return uppercase, so upper for consitent
+    				record.put(rs.getMetaData().getColumnLabel(columnIndex).toUpperCase(), rs.getObject(columnIndex));
     			}
     			listResult.add(record);
     		}
