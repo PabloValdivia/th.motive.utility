@@ -101,4 +101,16 @@ public final class MotiveStringUtils {
 		}
 		queryBuild.append(System.lineSeparator());
 	}
+	
+	public static void appendLine (StringBuilder queryBuild, Object appendText) {
+		queryBuild.append(appendText);
+		queryBuild.append(System.lineSeparator());
+	}
+	
+	public static void appendLine (StringBuilder queryBuild, Object... textParts) {
+		for (Object textPart : textParts) {
+			queryBuild.append(textPart);
+		}
+		queryBuild.append(System.lineSeparator());
+	}
 }
