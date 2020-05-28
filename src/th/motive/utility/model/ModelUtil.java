@@ -1,5 +1,6 @@
 package th.motive.utility.model;
 
+import java.math.RoundingMode;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -7,17 +8,31 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
+import java.util.logging.Level;
 
+import org.adempiere.exceptions.AdempiereException;
 import org.apache.commons.lang3.StringUtils;
 import org.compiere.model.MAccount;
 import org.compiere.model.MAcctSchema;
+import org.compiere.model.MDocType;
 import org.compiere.model.MInOut;
+import org.compiere.model.MInOutLine;
+import org.compiere.model.MInvoice;
+import org.compiere.model.MInvoiceLine;
+import org.compiere.model.MInvoicePaySchedule;
+import org.compiere.model.MLocator;
+import org.compiere.model.MOrder;
+import org.compiere.model.MOrderLine;
+import org.compiere.model.MOrderPaySchedule;
 import org.compiere.model.MPeriod;
 import org.compiere.model.MTable;
+import org.compiere.model.MWarehouse;
 import org.compiere.model.PO;
 import org.compiere.model.Query;
 import org.compiere.model.X_AD_Reference;
 import org.compiere.model.X_A_Asset_Addition;
+import org.compiere.process.DocAction;
+import org.compiere.util.CLogger;
 import org.compiere.util.DB;
 import org.compiere.util.Env;
 
@@ -27,6 +42,8 @@ import org.compiere.util.Env;
  *
  */
 public class ModelUtil {
+	protected static CLogger log = CLogger.getCLogger (ModelUtil.class);
+	
 	private ModelUtil (){} //private constructor let other can't instance it
 	
 	/**
@@ -287,5 +304,85 @@ public class ModelUtil {
 	            defaultAccount.getUserElement2_ID(),
 	            trxName);
 		return account;
+	}
+	
+	public static MInvoice createInvoiceFromPurchase (MDocType dt, MOrder purchase)
+	{
+		if (log.isLoggable(Level.INFO)) 
+			log.info(dt.toString());
+		MInvoice invoice = new MInvoice (purchase, dt.getC_DocTypeInvoice_ID(), purchase.getDateOrdered());
+		if (!invoice.save(purchase.get_TrxName()))
+			throw new AdempiereException("Could not create Invoice");
+		
+		MOrderLine[] oLines = purchase.getLines();
+		for (int i = 0; i < oLines.length; i++)
+		{
+			MOrderLine oLine = oLines[i];
+			//
+			MInvoiceLine iLine = new MInvoiceLine(invoice);
+			iLine.setOrderLine(oLine);
+			//	Qty = Ordered - Invoiced	
+			iLine.setQtyInvoiced(oLine.getQtyOrdered().subtract(oLine.getQtyInvoiced()));
+			if (oLine.getQtyOrdered().compareTo(oLine.getQtyEntered()) == 0)
+				iLine.setQtyEntered(iLine.getQtyInvoiced());
+			else
+				iLine.setQtyEntered(iLine.getQtyInvoiced().multiply(oLine.getQtyEntered())
+					.divide(oLine.getQtyOrdered(), 12, RoundingMode.HALF_UP));
+			if (!iLine.save(purchase.get_TrxName()))
+				throw new AdempiereException("Could not create Invoice Line from Order Line");
+		}
+		
+		// Copy payment schedule from order to invoice if any
+		for (MOrderPaySchedule ops : MOrderPaySchedule.getOrderPaySchedule(purchase.getCtx(), purchase.getC_Order_ID(), 0, purchase.get_TrxName())) {
+			MInvoicePaySchedule ips = new MInvoicePaySchedule(purchase.getCtx(), 0, purchase.get_TrxName());
+			PO.copyValues(ops, ips);
+			ips.setC_Invoice_ID(invoice.getC_Invoice_ID());
+			ips.setAD_Org_ID(ops.getAD_Org_ID());
+			ips.setProcessing(ops.isProcessing());
+			ips.setIsActive(ops.isActive());
+			if (!ips.save())
+				throw new AdempiereException ("ERROR: creating pay schedule for invoice from : "+ ops.toString());
+		}
+		return invoice;
+	}	//	createInvoice
+
+	public static MInOut createReceiptFromPurchase (MOrder purchase) {
+		MInOut inout = new MInOut (purchase, 0, purchase.getDateOrdered());
+		inout.setDocAction(MInOut.DOCACTION_Complete);
+		inout.saveEx(purchase.get_TrxName());
+		
+		MOrderLine [] purchaseLines = purchase.getLines();
+		MLocator defaultLocator = MLocator.getDefault((MWarehouse)inout.getM_Warehouse());
+		if (defaultLocator == null)
+			throw new AdempiereException("need a default locator on warehouse:" + inout.getM_Warehouse().getName());
+		
+		for (MOrderLine ol : purchaseLines) {
+			MInOutLine iol = new MInOutLine (inout);
+			iol.setM_Product_ID(ol.getM_Product_ID(), ol.getC_UOM_ID());	//	Line UOM
+			iol.setQtyEntered(ol.getQtyOrdered());							//	Movement/Entered
+			iol.setMovementQty (ol.getQtyOrdered());
+			iol.setC_OrderLine_ID(ol.get_ID());
+			iol.setM_AttributeSetInstance_ID(ol.getM_AttributeSetInstance_ID());
+			iol.setDescription(ol.getDescription());
+			//
+			iol.setC_Project_ID(ol.getC_Project_ID());
+			iol.setC_ProjectPhase_ID(ol.getC_ProjectPhase_ID());
+			iol.setC_ProjectTask_ID(ol.getC_ProjectTask_ID());
+			iol.setC_Activity_ID(ol.getC_Activity_ID());
+			iol.setC_Campaign_ID(ol.getC_Campaign_ID());
+			iol.setAD_OrgTrx_ID(ol.getAD_OrgTrx_ID());
+			iol.setUser1_ID(ol.getUser1_ID());
+			iol.setUser2_ID(ol.getUser2_ID());
+			iol.setC_OrderLine_Ref_OrderLine_ID(ol.getOrderLineRefID());
+			iol.setC_Charge_ID(ol.getC_Charge_ID());
+			// Set locator
+			iol.setM_Locator_ID(defaultLocator.get_ID());
+			iol.saveEx(inout.get_TrxName());
+		}
+		
+		if (!inout.processIt(DocAction.ACTION_Complete))
+			throw new AdempiereException("Failed when processing document - " + inout.getProcessMsg());
+		
+		return inout;
 	}
 }

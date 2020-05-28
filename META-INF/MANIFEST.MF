@@ -5,7 +5,7 @@ Bundle-SymbolicName: th.motive.utility
 Bundle-Version: 1.0.0.qualifier
 Bundle-Vendor: Motive Solutions Co., Ltd.
 Automatic-Module-Name: th.motive.utility
-Require-Capability: osgi.ee;filter:="(&(osgi.ee=JavaSE)(version>=1.10))"
+Require-Capability: osgi.ee;filter:="(&(osgi.ee=JavaSE)(version>=11))"
 Export-Package: th.motive.utility,
  th.motive.utility.acct,
  th.motive.utility.component,
