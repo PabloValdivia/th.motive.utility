@@ -356,6 +356,7 @@ public class ModelUtil {
 		if (defaultLocator == null)
 			throw new AdempiereException("need a default locator on warehouse:" + inout.getM_Warehouse().getName());
 		
+		String orderLineRefName = "C_OrderLine_Ref_OrderLine_ID";
 		for (MOrderLine ol : purchaseLines) {
 			MInOutLine iol = new MInOutLine (inout);
 			iol.setM_Product_ID(ol.getM_Product_ID(), ol.getC_UOM_ID());	//	Line UOM
@@ -373,7 +374,9 @@ public class ModelUtil {
 			iol.setAD_OrgTrx_ID(ol.getAD_OrgTrx_ID());
 			iol.setUser1_ID(ol.getUser1_ID());
 			iol.setUser2_ID(ol.getUser2_ID());
-			iol.setC_OrderLine_Ref_OrderLine_ID(ol.getOrderLineRefID());
+			if (iol.get_ColumnIndex(orderLineRefName) > -1 && ol.get_ColumnIndex(orderLineRefName) > -1) {
+				iol.set_ValueOfColumn(orderLineRefName, ol.get_Value(orderLineRefName));
+			}
 			iol.setC_Charge_ID(ol.getC_Charge_ID());
 			// Set locator
 			iol.setM_Locator_ID(defaultLocator.get_ID());
